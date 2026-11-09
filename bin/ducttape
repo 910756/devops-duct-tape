@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# ducttape: fast, safe, logged emergency fixes for common DevOps breakages.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+source "$ROOT/lib/common.sh"
+
+usage() {
+  cat <<'EOF'
+ducttape - emergency DevOps patches that unblock you now and log the debt for later.
+
+Usage: ducttape <fix> [options]
+
+Fixes:
+  k8s-crashloop   Diagnose CrashLoopBackOff pods; optionally roll back the deployment
+  tf-unlock       Find and release a stale Terraform state lock
+  cert-expiry     Check TLS certificates for domains that expire soon
+  disk-cleanup    Free disk space on a CI runner or Docker host
+  retry           Re-run a flaky command with exponential backoff
+  debt            Show the tech-debt log (DEBT.md)
+
+Every fix is a dry run unless you pass --apply.
+Run 'ducttape <fix> --help' for options.
+
+Environment:
+  DUCTTAPE_DEBT_FILE   Where to log debt (default ./DEBT.md)
+  DUCTTAPE_GH_ISSUE=1  Also open a GitHub issue for each patch (needs gh CLI)
+EOF
+}
+
+cmd="${1:-}"
+[[ $# -gt 0 ]] && shift
+
+case "$cmd" in
+  k8s-crashloop|tf-unlock|cert-expiry|disk-cleanup|retry)
+    exec "$ROOT/fixes/$cmd.sh" "$@" ;;
+  debt)
+    if [[ -f "$DEBT_FILE" ]]; then cat "$DEBT_FILE"; else ok "no tech debt logged yet in $DEBT_FILE"; fi ;;
+  ""|-h|--help|help)
+    usage ;;
+  *)
+    usage; die "unknown fix: $cmd" ;;
+esac
